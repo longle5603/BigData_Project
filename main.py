@@ -4,7 +4,7 @@ import joblib
 import pickle
 
 # Load the trained model and location-to-index mapping
-model = joblib.load("linear_model_sklearn.pkl")
+model = joblib.load("house_price_model.pkl")
 
 with open("location_to_index.pkl", "rb") as f:
     location_to_index = pickle.load(f)
