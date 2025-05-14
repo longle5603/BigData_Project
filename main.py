@@ -1,86 +1,54 @@
 import streamlit as st
 import numpy as np
 import joblib
-import pickle
 import pandas as pd
+import torch
+from transformers import AutoTokenizer, AutoModel
+import pickle
+model = joblib.load("house_price_model2.pkl")
 
-# Load the trained model and model feature names
-model = joblib.load("house_price_model.pkl")
+tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+bert_model = AutoModel.from_pretrained("bert-base-uncased")
 
-# Load the feature names (from model_features.pkl)
-feature_names = joblib.load("model_features.pkl")
-
-# Number of location features (used during training)
-NUM_LOCATIONS = len([f for f in feature_names if f.startswith("location_")])
-
-# --- Input range limits ---
 MIN_BHK, MAX_BHK = 1, 8
 MIN_SQFT, MAX_SQFT = 300.0, 11890.0
 MIN_BATH, MAX_BATH = 1, 8
 MIN_BALCONY, MAX_BALCONY = 0, 3
 
-# --- Streamlit UI ---
-st.title("🏠 Bangalore House Price Prediction")
+st.title("🏠 Bangalore House Price Prediction (BERT Version)")
 
-st.markdown(f"""
-**📌 Please enter the following information:**
-
-- `BHK (Bedrooms)`: {MIN_BHK} to {MAX_BHK}
-- `Total area (sqft)`: {MIN_SQFT} to {MAX_SQFT}
-- `Number of bathrooms`: {MIN_BATH} to {MAX_BATH}
-- `Number of balconies`: {MIN_BALCONY} to {MAX_BALCONY}
-""")
-
-# --- Input fields ---
-bhk = st.number_input("Number of Bedrooms (BHK)", min_value=MIN_BHK, max_value=MAX_BHK, step=1)
+st.markdown("**📌 Enter house details:**")
+bhk = st.number_input("Bedrooms (BHK)", min_value=MIN_BHK, max_value=MAX_BHK, step=1)
 total_sqft = st.number_input("Total Area (in sqft)", value=1000.0)
-bath = st.number_input("Number of Bathrooms", min_value=MIN_BATH, max_value=MAX_BATH, step=1)
-balcony = st.number_input("Number of Balconies", min_value=MIN_BALCONY, max_value=MAX_BALCONY, step=1)
+bath = st.number_input("Bathrooms", min_value=MIN_BATH, max_value=MAX_BATH, step=1)
+balcony = st.number_input("Balconies", min_value=MIN_BALCONY, max_value=MAX_BALCONY, step=1)
 
-# Load location_to_index.pkl
-with open("location_to_index.pkl", "rb") as f:
-    location_to_index = pickle.load(f)
+with open("trained_locations.pkl", "rb") as f:
+    trained_locations = pickle.load(f)
 
-location = st.selectbox("Select Location", sorted(location_to_index.keys()))
+location = st.selectbox("Select Location", sorted(trained_locations))
 
-# --- Input validation ---
-errors = []
+if total_sqft / bhk < 300:
+    st.warning("⚠️ Area per BHK seems too small.")
+if bath > bhk + 1:
+    st.warning("⚠️ Too many bathrooms for selected BHK.")
 
-if not (MIN_SQFT <= total_sqft <= MAX_SQFT):
-    errors.append(f"Total area must be between {MIN_SQFT} and {MAX_SQFT} sqft.")
-
-if errors:
-    for error in errors:
-        st.warning(error)
-else:
-    # One-hot encoding for location
-    location_vec = np.zeros(NUM_LOCATIONS)
-    location_idx = location_to_index.get(location)
-
-    if location_idx is not None and location_idx < NUM_LOCATIONS:
-        location_vec[location_idx] = 1
-    else:
-        st.error("Selected location is invalid or was not part of training data.")
+if st.button("Predict Price"):
+    if location.strip() == "":
+        st.error("Please enter a valid location.")
         st.stop()
 
-    # Construct feature vector
-    feature_vector = np.concatenate(([total_sqft, bath, balcony, bhk], location_vec))
+    # Encode location using BERT
+    with st.spinner("Encoding location with BERT..."):
+        inputs = tokenizer(location, return_tensors="pt")
+        outputs = bert_model(**inputs)
+        location_emb = outputs.last_hidden_state[:, 0, :].detach().numpy().flatten()
 
-    # Create a DataFrame with the same column names as the trained model
-    feature_vector_df = pd.DataFrame([feature_vector], columns=feature_names)
+    features = np.concatenate(([total_sqft, bath, balcony, bhk], location_emb))
+    feature_df = pd.DataFrame([features])
 
-    # --- Optional sanity checks ---
-    if total_sqft / bhk < 300:
-        st.warning("⚠️ The total area seems too small for the number of bedrooms.")
-    if bath > bhk + 1:
-        st.warning("⚠️ The number of bathrooms seems unusually high for the number of bedrooms.")
-
-    # --- Predict ---
-    predicted_price = model.predict(feature_vector_df)[0]
-
-    if predicted_price < 0:
-        st.error("❌ The house with your selected configuration is unrealistic and doesn't exist.")
-        predicted_price = 0.0
-
-    # --- Display result ---
-    st.success(f"💰 Estimated House Price: **₹{predicted_price:,.2f} Lakh INR**")
+    price = model.predict(feature_df)[0]
+    if price < 0:
+        st.error("❌ Invalid configuration, house doesn't exist.")
+    else:
+        st.success(f"💰 Estimated House Price: **₹{price:,.2f} Lakh INR**")
