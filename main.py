@@ -2,15 +2,16 @@ import streamlit as st
 import numpy as np
 import joblib
 import pickle
+import pandas as pd
 
-# Load the trained model and location-to-index mapping
+# Load the trained model and model feature names
 model = joblib.load("house_price_model.pkl")
 
-with open("location_to_index.pkl", "rb") as f:
-    location_to_index = pickle.load(f)
+# Load the feature names (from model_features.pkl)
+feature_names = joblib.load("model_features.pkl")
 
 # Number of location features (used during training)
-NUM_LOCATIONS = model.coef_.shape[0] - 4
+NUM_LOCATIONS = len([f for f in feature_names if f.startswith("location_")])
 
 # --- Input range limits ---
 MIN_BHK, MAX_BHK = 1, 8
@@ -35,6 +36,10 @@ bhk = st.number_input("Number of Bedrooms (BHK)", min_value=MIN_BHK, max_value=M
 total_sqft = st.number_input("Total Area (in sqft)", value=1000.0)
 bath = st.number_input("Number of Bathrooms", min_value=MIN_BATH, max_value=MAX_BATH, step=1)
 balcony = st.number_input("Number of Balconies", min_value=MIN_BALCONY, max_value=MAX_BALCONY, step=1)
+
+# Load location_to_index.pkl
+with open("location_to_index.pkl", "rb") as f:
+    location_to_index = pickle.load(f)
 
 location = st.selectbox("Select Location", sorted(location_to_index.keys()))
 
@@ -61,8 +66,11 @@ else:
     # Construct feature vector
     feature_vector = np.concatenate(([total_sqft, bath, balcony, bhk], location_vec))
 
+    # Create a DataFrame with the same column names as the trained model
+    feature_vector_df = pd.DataFrame([feature_vector], columns=feature_names)
+
     # Predict price
-    predicted_price = model.predict([feature_vector])[0]
+    predicted_price = model.predict(feature_vector_df)[0]
 
     # Show result
     st.success(f"💰 Estimated House Price: **₹{predicted_price:,.2f} Lakh INR**")
