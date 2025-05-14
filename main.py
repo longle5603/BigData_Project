@@ -69,8 +69,18 @@ else:
     # Create a DataFrame with the same column names as the trained model
     feature_vector_df = pd.DataFrame([feature_vector], columns=feature_names)
 
-    # Predict price
+    # --- Optional sanity checks ---
+    if total_sqft / bhk < 300:
+        st.warning("⚠️ The total area seems too small for the number of bedrooms.")
+    if bath > bhk + 1:
+        st.warning("⚠️ The number of bathrooms seems unusually high for the number of bedrooms.")
+
+    # --- Predict ---
     predicted_price = model.predict(feature_vector_df)[0]
 
-    # Show result
+    if predicted_price < 0:
+        st.error("❌ The house with your selected configuration is unrealistic and doesn't exist.")
+        predicted_price = 0.0
+
+    # --- Display result ---
     st.success(f"💰 Estimated House Price: **₹{predicted_price:,.2f} Lakh INR**")
