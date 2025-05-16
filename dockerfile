@@ -9,10 +9,11 @@ COPY . /app
 
 # Install dependencies
 RUN pip install --upgrade pip
-RUN pip install --default-timeout=120 --retries=10 -r requirements.txt
+RUN pip install --no-cache-dir --default-timeout=120 --retries=10 -r requirements.txt
+
 
 # Expose Streamlit default port
 EXPOSE 8501
 
 # Run the app
-CMD ["python", "-m", "streamlit", "run", "main.py", "--server.port=8501", "--server.address=localhost"]
+CMD ["python", "-m", "streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0"]

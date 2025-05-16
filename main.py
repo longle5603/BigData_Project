@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import joblib
 import pandas as pd
-
+import torch
 from transformers import AutoTokenizer, AutoModel
 import pickle
 model = joblib.load("house_price_model2.pkl")

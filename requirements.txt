@@ -1,7 +1,5 @@
-streamlit
-scikit-learn
-transformers
-pandas
-numpy
-joblib
-
+pandas==2.0.2
+streamlit==1.40.2
+transformers==4.45.2
+torch==2.5.1
+joblib==1.4.2
