@@ -5,10 +5,10 @@ import pandas as pd
 import torch
 from transformers import AutoTokenizer, AutoModel
 import pickle
-model = joblib.load("house_price_model2.pkl")
+model = joblib.load("house_price_model.pkl")
 
-tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-bert_model = AutoModel.from_pretrained("bert-base-uncased")
+tokenizer = AutoTokenizer.from_pretrained("google-bert/bert-base-uncased")
+bert_model = AutoModel.from_pretrained("google-bert/bert-base-uncased")
 
 MIN_BHK, MAX_BHK = 1, 8
 MIN_SQFT, MAX_SQFT = 300.0, 11890.0
@@ -39,7 +39,7 @@ if st.button("Predict Price"):
         st.stop()
 
     # Encode location using BERT
-    with st.spinner("Encoding location with BERT..."):
+    with st.spinner("Thinking..."):
         inputs = tokenizer(location, return_tensors="pt")
         outputs = bert_model(**inputs)
         location_emb = outputs.last_hidden_state[:, 0, :].detach().numpy().flatten()
